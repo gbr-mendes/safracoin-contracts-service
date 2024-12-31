@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SafraCoinContractsService",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SafraCoinContractsService.Core", "SafraCoinContractsService.Core\SafraCoinContractsService.Core.csproj", "{EFD605F0-512B-46B1-8C8E-2D23816FEC0E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SafraCoinContractsService.Infra", "SafraCoinContractsService.Infra\SafraCoinContractsService.Infra.csproj", "{71A6344A-5E5E-47FE-AB76-D55F1C5681B3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{EFD605F0-512B-46B1-8C8E-2D23816FEC0E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EFD605F0-512B-46B1-8C8E-2D23816FEC0E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EFD605F0-512B-46B1-8C8E-2D23816FEC0E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{71A6344A-5E5E-47FE-AB76-D55F1C5681B3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{71A6344A-5E5E-47FE-AB76-D55F1C5681B3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{71A6344A-5E5E-47FE-AB76-D55F1C5681B3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{71A6344A-5E5E-47FE-AB76-D55F1C5681B3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

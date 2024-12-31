@@ -1,13 +1,37 @@
 using SafraCoinContractsService;
-using SafraCoinContractsService.Core.Interfaces;
+using SafraCoinContractsService.Core.Interfaces.Services;
 using SafraCoinContractsService.Core.Services;
+using SafraCoinContractsService.Infra.Services;
+using Serilog;
 
-IHost host = Host.CreateDefaultBuilder(args)
-    .ConfigureServices(services =>
-    {
-        services.AddSingleton<IImplementContractService, ImplementContractService>();
-        services.AddHostedService<Worker>();
-    })
-    .Build();
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(new ConfigurationBuilder()
+        .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+        .Build())
+    .Enrich.FromLogContext()
+    .CreateLogger();
 
-host.Run();
+try
+{
+    Log.Information("Starting up the application");
+
+    IHost host = Host.CreateDefaultBuilder(args)
+        .UseSerilog()
+        .ConfigureServices(services =>
+        {
+            services.AddSingleton<IDockerService, DockerService>();
+            services.AddSingleton<IImplementContractService, ImplementContractService>();
+            services.AddHostedService<Worker>();
+        })
+        .Build();
+
+    host.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    Log.CloseAndFlush();
+}

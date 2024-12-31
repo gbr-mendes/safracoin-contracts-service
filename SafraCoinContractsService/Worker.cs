@@ -1,4 +1,4 @@
-using SafraCoinContractsService.Core.Interfaces;
+using SafraCoinContractsService.Core.Interfaces.Services;
 
 namespace SafraCoinContractsService;
 
