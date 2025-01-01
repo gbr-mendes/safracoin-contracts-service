@@ -36,6 +36,7 @@ namespace SafraCoinContractsService.Core.Services
         public async Task DeployContractsOnBlockChain()
         {
             await DeployOracleContract();
+            await DeploySafraCoinMainContract();
         }
 
         public async Task CompileContracts()
@@ -111,7 +112,7 @@ namespace SafraCoinContractsService.Core.Services
                 "artifacts",
                 "contracts",
                 $"{oracleContractName}.sol",
-                $"TokenAuthorizationOracle.json");
+                $"{oracleContractName}.json");
             
             if (!File.Exists(oraclePropertiesFilePath))
             {
@@ -160,6 +161,94 @@ namespace SafraCoinContractsService.Core.Services
             _logger.LogInformation("Oracle contract deployed successfuly. Address: {contractAddress}", contractAddress);
             
             return;
+        }
+
+        private async Task DeploySafraCoinMainContract()
+        {
+            var safraCoinContractName = "SafraCoinTokenGenerator";
+            var safraCoinTokenGeneratorContractDeployed = await _smartContractRepository.FindByName(safraCoinContractName);
+            if (safraCoinTokenGeneratorContractDeployed.HasValue)
+            {
+                var contract = safraCoinTokenGeneratorContractDeployed.ValueOrFailure();
+                _logger.LogInformation("{safraCoinContractName} contract already deployed at address {address}. Skipping", safraCoinContractName, contract.Address);
+                return;
+            }
+            
+            var safraCoinContractPropertiesFilePath = Path.Combine(
+                hardHatBaseDir, 
+                "artifacts",
+                "contracts",
+                $"{safraCoinContractName}.sol",
+                $"{safraCoinContractName}.json");
+            
+            if (!File.Exists(safraCoinContractPropertiesFilePath))
+            {
+                _logger.LogError("{safraCoinContractName} contract properties file not found at: {safraCoinContractPropertiesFilePath}", safraCoinContractPropertiesFilePath);
+                return;
+            }
+            
+            var safraCoinPropertiesJson = await File.ReadAllTextAsync(safraCoinContractPropertiesFilePath);
+            var safraCoinProperties = JObject.Parse(safraCoinPropertiesJson);
+            var safraCoinAbi = safraCoinProperties["abi"]?.ToString();
+            var safraCoinByteCode = safraCoinProperties["bytecode"]?.ToString();
+
+            var account = new Account(_blockChainSettings.PrivateKey);
+            var web3 = new Nethereum.Web3.Web3(account, _blockChainSettings.RpcUrl);
+            var gasLimit = new Nethereum.Hex.HexTypes.HexBigInteger(_blockChainSettings.GasLimit);
+
+            var deploymentHandler = web3.Eth.DeployContract;
+
+            var oracleContract = await _smartContractRepository.FindByName("SafraCoinOracle");
+            if (!oracleContract.HasValue)
+            {
+                _logger.LogError("Oracle contract not found. Please deploy the Oracle contract first.");
+                return;
+            }
+            
+            var oracleContractAddress = oracleContract.ValueOrFailure().Address;
+            
+            try
+            {
+                var transactionHash = await deploymentHandler.SendRequestAsync(
+                    abi: safraCoinAbi,
+                    contractByteCode: safraCoinByteCode,
+                    from: _blockChainSettings.AccountAddress,
+                    gas: gasLimit,
+                    values: new object[] {
+                        _blockChainSettings.TokenName,
+                        _blockChainSettings.TokenSymbol,
+                        oracleContractAddress
+                    }
+                );
+
+                var receipt = await web3.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(transactionHash);
+
+                if (receipt == null || receipt.ContractAddress == null)
+                {
+                    _logger.LogError("SafraCoin contract deployment failed. Transaction hash: {transactionHash}", transactionHash);
+                    return;
+                }
+
+                var oracleRawContractPath = Path.Combine(hardHatBaseDir, "contracts", $"{safraCoinContractName}.sol");
+                var contractAddress = receipt.ContractAddress;
+                var rawCodeHash = ComputeSHA256(oracleRawContractPath);
+
+                await _smartContractRepository.Add(new SmartContractVO(
+                    safraCoinContractName,
+                    contractAddress,
+                    safraCoinAbi,
+                    safraCoinByteCode,
+                    rawCodeHash
+                ));
+
+                _logger.LogInformation("SafraCoin contract deployed successfuly. Address: {contractAddress}", contractAddress);
+                
+                return;
+            }catch (Exception ex)
+            {
+                _logger.LogError(ex, "SafraCoin contract deployment failed.");
+                return;
+            }
         }
 
         private async Task<bool> ShouldCompile()

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract TokenAuthorizationOracle {
+contract SafraCoinOracle {
     mapping(address => bool) private authorizedAddresses;
 
     event AddressAuthorizationChanged(address indexed user, bool isAuthorized);

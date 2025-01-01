@@ -8,7 +8,7 @@ interface TokenAuthorizationOracle {
     function isAuthorized(address account) external view returns (bool);
 }
 
-contract AuthorizedToken is ERC20, Ownable {
+contract SafraCoinTokenGenerator is ERC20, Ownable {
     address public oracleContract;
 
     event TokensMinted(address indexed to, uint256 amount);
