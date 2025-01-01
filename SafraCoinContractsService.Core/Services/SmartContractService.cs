@@ -98,106 +98,13 @@ namespace SafraCoinContractsService.Core.Services
 
         private async Task DeployOracleContract()
         {
-            var oracleContractDeployed = await _smartContractRepository.FindByName("SafraCoinOracle");
-            if (oracleContractDeployed.HasValue)
-            {
-                var contract = oracleContractDeployed.ValueOrFailure();
-                _logger.LogInformation("Oracle contract already deployed at address {address}. Skipping", contract.Address);
-                return;
-            }
+            var contractName = "SafraCoinOracle";
 
-            var oracleContractName = "SafraCoinOracle";
-            var oraclePropertiesFilePath = Path.Combine(
-                hardHatBaseDir, 
-                "artifacts",
-                "contracts",
-                $"{oracleContractName}.sol",
-                $"{oracleContractName}.json");
-            
-            if (!File.Exists(oraclePropertiesFilePath))
-            {
-                _logger.LogError("Oracle contract properties file not found at: {oraclePropertiesFilePath}", oraclePropertiesFilePath);
-                return;
-            }
-            
-            var oraclePropertiesJson = await File.ReadAllTextAsync(oraclePropertiesFilePath);
-            var oracleProperties = JObject.Parse(oraclePropertiesJson);
-            var oracleAbi = oracleProperties["abi"]?.ToString();
-            var oracleByteCode = oracleProperties["bytecode"]?.ToString();
-
-            var account = new Account(_blockChainSettings.PrivateKey);
-            var web3 = new Nethereum.Web3.Web3(account, _blockChainSettings.RpcUrl);
-            var gasLimit = new Nethereum.Hex.HexTypes.HexBigInteger(_blockChainSettings.GasLimit);
-
-            var deploymentHandler = web3.Eth.DeployContract;
-            
-            var transactionHash = await deploymentHandler.SendRequestAsync(
-                abi: oracleAbi,
-                contractByteCode: oracleByteCode,
-                from: _blockChainSettings.AccountAddress,
-                gas: gasLimit
-            );
-            
-            var receipt = await web3.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(transactionHash);
-
-            if (receipt == null || receipt.ContractAddress == null)
-            {
-                _logger.LogError("Oracle contract deployment failed. Transaction hash: {transactionHash}", transactionHash);
-                return;
-            }
-
-            var oracleRawContractPath = Path.Combine(hardHatBaseDir, "contracts", $"{oracleContractName}.sol");
-            var contractAddress = receipt.ContractAddress;
-            var rawCodeHash = ComputeSHA256(oracleRawContractPath);
-
-            await _smartContractRepository.Add(new SmartContractVO(
-                oracleContractName,
-                contractAddress,
-                oracleAbi,
-                oracleByteCode,
-                rawCodeHash
-            ));
-
-            _logger.LogInformation("Oracle contract deployed successfuly. Address: {contractAddress}", contractAddress);
-            
-            return;
+            await DeploySmartContract(contractName);
         }
 
         private async Task DeploySafraCoinMainContract()
         {
-            var safraCoinContractName = "SafraCoinTokenGenerator";
-            var safraCoinTokenGeneratorContractDeployed = await _smartContractRepository.FindByName(safraCoinContractName);
-            if (safraCoinTokenGeneratorContractDeployed.HasValue)
-            {
-                var contract = safraCoinTokenGeneratorContractDeployed.ValueOrFailure();
-                _logger.LogInformation("{safraCoinContractName} contract already deployed at address {address}. Skipping", safraCoinContractName, contract.Address);
-                return;
-            }
-            
-            var safraCoinContractPropertiesFilePath = Path.Combine(
-                hardHatBaseDir, 
-                "artifacts",
-                "contracts",
-                $"{safraCoinContractName}.sol",
-                $"{safraCoinContractName}.json");
-            
-            if (!File.Exists(safraCoinContractPropertiesFilePath))
-            {
-                _logger.LogError("{safraCoinContractName} contract properties file not found at: {safraCoinContractPropertiesFilePath}", safraCoinContractPropertiesFilePath);
-                return;
-            }
-            
-            var safraCoinPropertiesJson = await File.ReadAllTextAsync(safraCoinContractPropertiesFilePath);
-            var safraCoinProperties = JObject.Parse(safraCoinPropertiesJson);
-            var safraCoinAbi = safraCoinProperties["abi"]?.ToString();
-            var safraCoinByteCode = safraCoinProperties["bytecode"]?.ToString();
-
-            var account = new Account(_blockChainSettings.PrivateKey);
-            var web3 = new Nethereum.Web3.Web3(account, _blockChainSettings.RpcUrl);
-            var gasLimit = new Nethereum.Hex.HexTypes.HexBigInteger(_blockChainSettings.GasLimit);
-
-            var deploymentHandler = web3.Eth.DeployContract;
-
             var oracleContract = await _smartContractRepository.FindByName("SafraCoinOracle");
             if (!oracleContract.HasValue)
             {
@@ -206,47 +113,87 @@ namespace SafraCoinContractsService.Core.Services
             }
             
             var oracleContractAddress = oracleContract.ValueOrFailure().Address;
+
+            var contractName = "SafraCoinTokenGenerator";
+
+            await DeploySmartContract(contractName, new object[] {
+                _blockChainSettings.TokenName,
+                _blockChainSettings.TokenSymbol,
+                oracleContractAddress });
+        }
+
+        private async Task DeploySmartContract(string contractName, object[]? contructorParams = null)
+        {
+            var deployedContract = await _smartContractRepository.FindByName(contractName);
+            if (deployedContract.HasValue)
+            {
+                var contract = deployedContract.ValueOrFailure();
+                _logger.LogInformation("{contractName} contract already deployed at address {address}. Skipping", contractName, contract.Address);
+                return;
+            }
+            
+            var contractPropertiesFilePath = Path.Combine(
+                hardHatBaseDir, 
+                "artifacts",
+                "contracts",
+                $"{contractName}.sol",
+                $"{contractName}.json");
+            
+            if (!File.Exists(contractPropertiesFilePath))
+            {
+                _logger.LogError("{contractName} contract properties file not found at: {contractPropertiesFilePath}", contractName, contractPropertiesFilePath);
+                return;
+            }
+            
+            var contractPropertiesJson = await File.ReadAllTextAsync(contractPropertiesFilePath);
+            var contractProperties = JObject.Parse(contractPropertiesJson);
+            var abi = contractProperties["abi"]?.ToString();
+            var bytecode = contractProperties["bytecode"]?.ToString();
+
+            var account = new Account(_blockChainSettings.PrivateKey);
+            var web3 = new Nethereum.Web3.Web3(account, _blockChainSettings.RpcUrl);
+            var gasLimit = new Nethereum.Hex.HexTypes.HexBigInteger(_blockChainSettings.GasLimit);
+
+            var deploymentHandler = web3.Eth.DeployContract;
             
             try
             {
                 var transactionHash = await deploymentHandler.SendRequestAsync(
-                    abi: safraCoinAbi,
-                    contractByteCode: safraCoinByteCode,
+                    abi: abi,
+                    contractByteCode: bytecode,
                     from: _blockChainSettings.AccountAddress,
                     gas: gasLimit,
-                    values: new object[] {
-                        _blockChainSettings.TokenName,
-                        _blockChainSettings.TokenSymbol,
-                        oracleContractAddress
-                    }
+                    values: contructorParams ?? Array.Empty<object>()
                 );
 
                 var receipt = await web3.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(transactionHash);
 
                 if (receipt == null || receipt.ContractAddress == null)
                 {
-                    _logger.LogError("SafraCoin contract deployment failed. Transaction hash: {transactionHash}", transactionHash);
+                    _logger.LogError("{contractName} contract deployment failed. Transaction hash: {transactionHash}", contractName, transactionHash);
                     return;
                 }
 
-                var oracleRawContractPath = Path.Combine(hardHatBaseDir, "contracts", $"{safraCoinContractName}.sol");
+                var rawContractPath = Path.Combine(hardHatBaseDir, "contracts", $"{contractName}.sol");
+                var rawCodeHash = ComputeSHA256(rawContractPath);
+
                 var contractAddress = receipt.ContractAddress;
-                var rawCodeHash = ComputeSHA256(oracleRawContractPath);
 
                 await _smartContractRepository.Add(new SmartContractVO(
-                    safraCoinContractName,
+                    contractName,
                     contractAddress,
-                    safraCoinAbi,
-                    safraCoinByteCode,
+                    abi,
+                    bytecode,
                     rawCodeHash
                 ));
 
                 _logger.LogInformation("SafraCoin contract deployed successfuly. Address: {contractAddress}", contractAddress);
                 
                 return;
-            }catch (Exception ex)
+            }
+            catch (Exception ex)
             {
-                _logger.LogError(ex, "SafraCoin contract deployment failed.");
+                _logger.LogError(ex, "{contractName} contract deployment failed.", contractName);
                 return;
             }
         }
