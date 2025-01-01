@@ -33,14 +33,76 @@ namespace SafraCoinContractsService.Core.Services
             _logger = logger;
         }
 
-        public async Task<bool> DeployContractsOnBlockChain()
+        public async Task DeployContractsOnBlockChain()
+        {
+            await DeployOracleContract();
+        }
+
+        public async Task CompileContracts()
+        {
+            var shouldCompile = await ShouldCompile();
+
+            if (!shouldCompile)
+            {
+                _logger.LogInformation("Skipping contract compilation. No changes detected.");
+                return;
+            }
+
+            try
+            {
+                var dockerfileFullPath = Path.Combine(hardHatBaseDir, "Dockerfile");
+                if (!File.Exists(dockerfileFullPath))
+                {
+                    _logger.LogError("Dockerfile not found at: {dockerfileFullPath}", dockerfileFullPath);
+                    return;
+                }
+
+                var artifactsPath = $"{hardHatBaseDir}/artifacts";
+                var containerArtifactsPath = "/app/artifacts";
+                var imageName = "hardhat-compiler";
+
+                _logger.LogInformation("Building hardhat docker image. It might take a while...");
+
+                var imageBuilt = await _dockerService.BuildImageAsync(dockerfileFullPath, hardHatBaseDir, imageName);
+
+                if (!imageBuilt)
+                {
+                    return;
+                }
+
+                _logger.LogInformation("Compiling contracts...");
+
+                 var containerStarted = await _dockerService.RunContainerAsync(
+                    imageName: imageName,
+                    containerName: "hardhat-compiler-container",
+                    hostVolumePath: artifactsPath,
+                    containerVolumePath: containerArtifactsPath,
+                    autoRemove: true
+                );
+
+                if (!containerStarted)
+                {
+                    return;
+                }
+
+                _logger.LogInformation("Contracts compiled successfully.");
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Error compiling contracts: {}", ex.Message);
+                return;
+            }
+        }
+
+        private async Task DeployOracleContract()
         {
             var oracleContractDeployed = await _smartContractRepository.FindByName("SafraCoinOracle");
             if (oracleContractDeployed.HasValue)
             {
                 var contract = oracleContractDeployed.ValueOrFailure();
                 _logger.LogInformation("Oracle contract already deployed at address {address}. Skipping", contract.Address);
-                return true;
+                return;
             }
 
             var oracleContractName = "SafraCoinOracle";
@@ -54,7 +116,7 @@ namespace SafraCoinContractsService.Core.Services
             if (!File.Exists(oraclePropertiesFilePath))
             {
                 _logger.LogError("Oracle contract properties file not found at: {oraclePropertiesFilePath}", oraclePropertiesFilePath);
-                return false;
+                return;
             }
             
             var oraclePropertiesJson = await File.ReadAllTextAsync(oraclePropertiesFilePath);
@@ -64,7 +126,7 @@ namespace SafraCoinContractsService.Core.Services
 
             var account = new Account(_blockChainSettings.PrivateKey);
             var web3 = new Nethereum.Web3.Web3(account, _blockChainSettings.RpcUrl);
-            var gasLimit = new Nethereum.Hex.HexTypes.HexBigInteger(3000000);
+            var gasLimit = new Nethereum.Hex.HexTypes.HexBigInteger(_blockChainSettings.GasLimit);
 
             var deploymentHandler = web3.Eth.DeployContract;
             
@@ -80,7 +142,7 @@ namespace SafraCoinContractsService.Core.Services
             if (receipt == null || receipt.ContractAddress == null)
             {
                 _logger.LogError("Oracle contract deployment failed. Transaction hash: {transactionHash}", transactionHash);
-                return false;
+                return;
             }
 
             var oracleRawContractPath = Path.Combine(hardHatBaseDir, "contracts", $"{oracleContractName}.sol");
@@ -97,64 +159,7 @@ namespace SafraCoinContractsService.Core.Services
 
             _logger.LogInformation("Oracle contract deployed successfuly. Address: {contractAddress}", contractAddress);
             
-            return true;
-        }
-
-        public async Task<bool> CompileContracts()
-        {
-            var shouldCompile = await ShouldCompile();
-
-            if (!shouldCompile)
-            {
-                _logger.LogInformation("Skipping contract compilation. No changes detected.");
-                return false;
-            }
-
-            try
-            {
-                var dockerfileFullPath = Path.Combine(hardHatBaseDir, "Dockerfile");
-                if (!File.Exists(dockerfileFullPath))
-                {
-                    _logger.LogError("Dockerfile not found at: {dockerfileFullPath}", dockerfileFullPath);
-                    return false;
-                }
-
-                var artifactsPath = $"{hardHatBaseDir}/artifacts";
-                var containerArtifactsPath = "/app/artifacts";
-                var imageName = "hardhat-compiler";
-
-                _logger.LogInformation("Building hardhat docker image. It might take a while...");
-
-                var imageBuilt = await _dockerService.BuildImageAsync(dockerfileFullPath, hardHatBaseDir, imageName);
-
-                if (!imageBuilt)
-                {
-                    return false;
-                }
-
-                _logger.LogInformation("Compiling contracts...");
-
-                 var containerStarted = await _dockerService.RunContainerAsync(
-                    imageName: imageName,
-                    containerName: "hardhat-compiler-container",
-                    hostVolumePath: artifactsPath,
-                    containerVolumePath: containerArtifactsPath,
-                    autoRemove: true
-                );
-
-                if (!containerStarted)
-                {
-                    return false;
-                }
-
-                _logger.LogInformation("Contracts compiled successfully.");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError("Error compiling contracts: {}", ex.Message);
-                return false;
-            }
+            return;
         }
 
         private async Task<bool> ShouldCompile()
