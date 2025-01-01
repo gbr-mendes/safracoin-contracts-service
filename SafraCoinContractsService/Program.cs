@@ -1,14 +1,15 @@
 using SafraCoinContractsService;
-using SafraCoinContractsService.Core.Interfaces.Services;
-using SafraCoinContractsService.Core.Services;
-using SafraCoinContractsService.Infra.Services;
+using SafraCoinContractsService.Core.DI;
+using SafraCoinContractsService.Infra.DI;
 using Serilog;
 
+var configuration = new ConfigurationBuilder()
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .Build();
+
 Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(new ConfigurationBuilder()
-        .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-        .Build())
-    .Enrich.FromLogContext()
+    .ReadFrom.Configuration(configuration)
+    .Enrich.WithProperty("ApplicationName", "SafraCoinContractsService")
     .CreateLogger();
 
 try
@@ -17,10 +18,16 @@ try
 
     IHost host = Host.CreateDefaultBuilder(args)
         .UseSerilog()
+        .ConfigureAppConfiguration((hostingContext, builder) =>{
+            builder.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+        })
         .ConfigureServices(services =>
         {
-            services.AddSingleton<IDockerService, DockerService>();
-            services.AddSingleton<IImplementContractService, ImplementContractService>();
+            
+            services.AddCoreAppSettings();
+            services.AddCoreServices();
+            services.AddInfraServices();
+            
             services.AddHostedService<Worker>();
         })
         .Build();

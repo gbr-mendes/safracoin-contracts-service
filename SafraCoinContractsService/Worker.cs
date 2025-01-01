@@ -5,17 +5,21 @@ namespace SafraCoinContractsService;
 public class Worker : BackgroundService
 {
     private readonly ILogger<Worker> _logger;
-    private readonly IImplementContractService _implementContractService;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
 
-    public Worker(ILogger<Worker> logger, IImplementContractService implementContractService)
+    public Worker(ILogger<Worker> logger, IServiceScopeFactory serviceScopeFactory)
     {
         _logger = logger;
-        _implementContractService = implementContractService;
+        _serviceScopeFactory = serviceScopeFactory;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await _implementContractService.CompileContracts();
+        using var scope = _serviceScopeFactory.CreateScope();
+        var contractService = scope.ServiceProvider.GetRequiredService<ISmartContractService>();
+        
+        await contractService.CompileContracts();
+
         while (!stoppingToken.IsCancellationRequested)
         {
             _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
