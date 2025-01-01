@@ -2,10 +2,13 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Nethereum.Web3.Accounts;
+using Newtonsoft.Json.Linq;
 using Optional.Unsafe;
 using SafraCoinContractsService.Core.Interfaces.Repositories;
 using SafraCoinContractsService.Core.Interfaces.Services;
 using SafraCoinContractsService.Core.Settings;
+using SafraCoinContractsService.Core.ValueObjects;
 
 namespace SafraCoinContractsService.Core.Services
 {
@@ -32,7 +35,68 @@ namespace SafraCoinContractsService.Core.Services
 
         public async Task<bool> DeployContractsOnBlockChain()
         {
-            await Task.Delay(1000);
+            var oracleContractDeployed = await _smartContractRepository.FindByName("SafraCoinOracle");
+            if (oracleContractDeployed.HasValue)
+            {
+                var contract = oracleContractDeployed.ValueOrFailure();
+                _logger.LogInformation("Oracle contract already deployed at address {address}. Skipping", contract.Address);
+                return true;
+            }
+
+            var oracleContractName = "SafraCoinOracle";
+            var oraclePropertiesFilePath = Path.Combine(
+                hardHatBaseDir, 
+                "artifacts",
+                "contracts",
+                $"{oracleContractName}.sol",
+                $"TokenAuthorizationOracle.json");
+            
+            if (!File.Exists(oraclePropertiesFilePath))
+            {
+                _logger.LogError("Oracle contract properties file not found at: {oraclePropertiesFilePath}", oraclePropertiesFilePath);
+                return false;
+            }
+            
+            var oraclePropertiesJson = await File.ReadAllTextAsync(oraclePropertiesFilePath);
+            var oracleProperties = JObject.Parse(oraclePropertiesJson);
+            var oracleAbi = oracleProperties["abi"]?.ToString();
+            var oracleByteCode = oracleProperties["bytecode"]?.ToString();
+
+            var account = new Account(_blockChainSettings.PrivateKey);
+            var web3 = new Nethereum.Web3.Web3(account, _blockChainSettings.RpcUrl);
+            var gasLimit = new Nethereum.Hex.HexTypes.HexBigInteger(3000000);
+
+            var deploymentHandler = web3.Eth.DeployContract;
+            
+            var transactionHash = await deploymentHandler.SendRequestAsync(
+                abi: oracleAbi,
+                contractByteCode: oracleByteCode,
+                from: _blockChainSettings.AccountAddress,
+                gas: gasLimit
+            );
+            
+            var receipt = await web3.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(transactionHash);
+
+            if (receipt == null || receipt.ContractAddress == null)
+            {
+                _logger.LogError("Oracle contract deployment failed. Transaction hash: {transactionHash}", transactionHash);
+                return false;
+            }
+
+            var oracleRawContractPath = Path.Combine(hardHatBaseDir, "contracts", $"{oracleContractName}.sol");
+            var contractAddress = receipt.ContractAddress;
+            var rawCodeHash = ComputeSHA256(oracleRawContractPath);
+
+            await _smartContractRepository.Add(new SmartContractVO(
+                oracleContractName,
+                contractAddress,
+                oracleAbi,
+                oracleByteCode,
+                rawCodeHash
+            ));
+
+            _logger.LogInformation("Oracle contract deployed successfuly. Address: {contractAddress}", contractAddress);
+            
             return true;
         }
 

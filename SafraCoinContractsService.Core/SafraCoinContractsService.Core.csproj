@@ -13,6 +13,9 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="7.0.0" />
+    <PackageReference Include="Nethereum.Accounts" Version="4.27.1" />
+    <PackageReference Include="Nethereum.Contracts" Version="4.27.1" />
+    <PackageReference Include="Nethereum.Web3" Version="4.27.1" />
     <PackageReference Include="Optional" Version="4.0.0" />
   </ItemGroup>
 

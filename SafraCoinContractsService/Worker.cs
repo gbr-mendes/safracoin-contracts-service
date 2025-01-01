@@ -19,6 +19,7 @@ public class Worker : BackgroundService
         var contractService = scope.ServiceProvider.GetRequiredService<ISmartContractService>();
         
         await contractService.CompileContracts();
+        await contractService.DeployContractsOnBlockChain();
 
         while (!stoppingToken.IsCancellationRequested)
         {
