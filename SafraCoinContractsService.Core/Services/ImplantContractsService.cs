@@ -12,19 +12,19 @@ using SafraCoinContractsService.Core.ValueObjects;
 
 namespace SafraCoinContractsService.Core.Services
 {
-    public class SmartContractService : ISmartContractService
+    public class ImplantContractsService : IImplantContractsService
     {
         private readonly ISmartContractRepository _smartContractRepository;
         private readonly BlockChainSettings _blockChainSettings;
         private readonly IDockerService _dockerService;
-        private readonly ILogger<SmartContractService> _logger;
+        private readonly ILogger<ImplantContractsService> _logger;
         private readonly string hardHatBaseDir = "../Hardhat";
 
-        public SmartContractService(
+        public ImplantContractsService(
             ISmartContractRepository smartContractRepository,
             IOptions<BlockChainSettings> blockChainSettings,
             IDockerService dockerService,
-            ILogger<SmartContractService> logger
+            ILogger<ImplantContractsService> logger
             )
         {
             _smartContractRepository = smartContractRepository;
@@ -187,7 +187,7 @@ namespace SafraCoinContractsService.Core.Services
                     rawCodeHash
                 ));
 
-                _logger.LogInformation("SafraCoin contract deployed successfuly. Address: {contractAddress}", contractAddress);
+                _logger.LogInformation("{contractName} contract deployed successfuly. Address: {contractAddress}", contractName, contractAddress);
                 
                 return;
             }

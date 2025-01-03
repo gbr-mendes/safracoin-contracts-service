@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+message FarmerAccount {
+    string Email = 1;
+    string Address = 2;
+}

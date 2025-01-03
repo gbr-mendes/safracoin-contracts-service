@@ -1,6 +1,6 @@
 namespace SafraCoinContractsService.Core.Interfaces.Services;
 
-public interface ISmartContractService
+public interface IImplantContractsService
 {
     Task DeployContractsOnBlockChain();
     Task CompileContracts();

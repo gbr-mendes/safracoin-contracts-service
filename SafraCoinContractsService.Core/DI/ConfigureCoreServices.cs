@@ -8,7 +8,8 @@ public static class ConfigureCoreServices
 {
     public static IServiceCollection AddCoreServices(this IServiceCollection services)
     {
-        services.AddScoped<ISmartContractService, SmartContractService>();
+        services.AddScoped<IImplantContractsService, ImplantContractsService>();
+        services.AddScoped<IOracleService, OracleService>();
         return services;
     }
 }

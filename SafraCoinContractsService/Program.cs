@@ -1,5 +1,5 @@
-using SafraCoinContractsService;
 using SafraCoinContractsService.Core.DI;
+using SafraCoinContractsService.Core.Interfaces.Services;
 using SafraCoinContractsService.Infra.DI;
 using Serilog;
 
@@ -25,10 +25,12 @@ try
         {
             
             services.AddCoreAppSettings();
+            services.AddInfraAppSettings();
             services.AddCoreServices();
             services.AddInfraServices();
-            
-            services.AddHostedService<Worker>();
+            services.AddWorkers();
+
+            ImplantSmartContracts(services).GetAwaiter().GetResult();
         })
         .Build();
 
@@ -41,4 +43,11 @@ catch (Exception ex)
 finally
 {
     Log.CloseAndFlush();
+}
+
+static async Task ImplantSmartContracts(IServiceCollection services)
+{
+    var contractService = services.BuildServiceProvider().GetRequiredService<IImplantContractsService>();
+    await contractService.CompileContracts();
+    await contractService.DeployContractsOnBlockChain();
 }
