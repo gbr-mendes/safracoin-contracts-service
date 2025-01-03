@@ -1,11 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Optional;
-using SafraCoinContractsService.Core.Interfaces.Repositories;
+using SafraCoinContractsService.Core.Interfaces.Repositories.EFRepository;
 using SafraCoinContractsService.Core.Models;
 using SafraCoinContractsService.Core.ValueObjects;
 using SafraCoinContractsService.Infra.Db;
 
-namespace SafraCoinContractsService.Infra.Repositories.EntiteisRepositories;
+namespace SafraCoinContractsService.Infra.Repositories.EFRepository;
 
 public class SmartContractRepository : ISmartContractRepository
 {

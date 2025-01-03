@@ -1,7 +1,7 @@
 using Optional;
 using SafraCoinContractsService.Core.ValueObjects;
 
-namespace SafraCoinContractsService.Core.Interfaces.Repositories;
+namespace SafraCoinContractsService.Core.Interfaces.Repositories.EFRepository;
 
 public interface ISmartContractRepository
 {

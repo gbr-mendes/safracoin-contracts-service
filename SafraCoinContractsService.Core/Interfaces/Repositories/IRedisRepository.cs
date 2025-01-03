@@ -11,4 +11,5 @@ public interface IRedisRepository
         Func<byte[], string, T> parseFunction);
     
     Task<bool> CreateGroupAsync(string streamKey, string groupName, string beginPosition);
+    Task<bool> AckEntryStreamGroupAsync(string streamKey, string groupName, string entryId);
 }

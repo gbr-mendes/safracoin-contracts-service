@@ -5,7 +5,7 @@ using Microsoft.Extensions.Options;
 using Nethereum.Web3.Accounts;
 using Newtonsoft.Json.Linq;
 using Optional.Unsafe;
-using SafraCoinContractsService.Core.Interfaces.Repositories;
+using SafraCoinContractsService.Core.Interfaces.Repositories.EFRepository;
 using SafraCoinContractsService.Core.Interfaces.Services;
 using SafraCoinContractsService.Core.Settings;
 using SafraCoinContractsService.Core.ValueObjects;

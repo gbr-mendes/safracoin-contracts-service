@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using SafraCoinContractsService.Core.Interfaces.Repositories;
 using SafraCoinContractsService.Core.Interfaces.Services;
+using SafraCoinContractsService.Core.ValueObjects;
 
 namespace SafraCoinContractsService.Core.Workers;
 
@@ -65,7 +66,7 @@ public class OracleWorker : BackgroundService
         );
     }
 
-    private static async Task<IEnumerable<FarmerAccount>> ReadFarmerAccountsFromRedisStream(IRedisRepository redisRepository)
+    private static async Task<IEnumerable<AccountVO>> ReadFarmerAccountsFromRedisStream(IRedisRepository redisRepository)
     {
         var count = 1;
         var farmerAccounts = await redisRepository.ReadEntriesFromStreamAsync(
@@ -74,9 +75,16 @@ public class OracleWorker : BackgroundService
             "SafraCoinContractsService",
             ">",
             count,
-            (buffer, redisChatId) => {
+            (buffer, redisEntryId) => {
                 var farmer = FarmerAccount.Parser.ParseFrom(buffer);
-                return farmer;
+                var accountVO = new AccountVO
+                {
+                    RedisEntryId = redisEntryId,
+                    Address = farmer.Address,
+                    Email = farmer.Email
+                };
+
+                return accountVO;
             }
         );
 
@@ -98,6 +106,11 @@ public class OracleWorker : BackgroundService
         {
             _logger.LogInformation("[{workerName}] Processing account {account}", nameof(OracleWorker), account.Address);
             await oracleService.SetAuthorization(account.Address);
+            await redisRepository.AckEntryStreamGroupAsync(
+                "FarmerAccounts",
+                "FarmersConsumerGroup",
+                account.RedisEntryId
+            );
         }
         await Task.Delay(1000);
         return;

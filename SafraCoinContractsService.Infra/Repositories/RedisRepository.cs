@@ -66,6 +66,16 @@ public class RedisRepository : IRedisRepository
         return false;
     }
 
+    public async Task<bool> AckEntryStreamGroupAsync(string streamKey, string groupName, string entryId)
+    {
+        var entryAcknowledgeQty = await _database.StreamAcknowledgeAsync(
+            streamKey,
+            groupName,
+            entryId);
+
+        return entryAcknowledgeQty > 0;
+    }
+
     private async Task CreateConsumerGroupAsync(string streamKey, string groupName, string beginPosition)
     {
         var success = await _database.StreamCreateConsumerGroupAsync(streamKey, groupName, beginPosition, createStream: true);
