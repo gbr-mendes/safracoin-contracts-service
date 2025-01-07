@@ -37,6 +37,7 @@ namespace SafraCoinContractsService.Core.Services
         {
             await DeployOracleContract();
             await DeploySafraCoinMainContract();
+            await DeploySafraCoinPoolManagementContract();
         }
 
         public async Task CompileContracts()
@@ -101,6 +102,24 @@ namespace SafraCoinContractsService.Core.Services
             var contractName = "SafraCoinOracle";
 
             await DeploySmartContract(contractName);
+        }
+
+        private async Task DeploySafraCoinPoolManagementContract()
+        {
+            var tokenGeneratorContract = await _smartContractRepository.FindByName("SafraCoinTokenGenerator");
+            if (!tokenGeneratorContract.HasValue)
+            {
+                _logger.LogError("Token Generator contract not found. Please deploy it contract first.");
+                return;
+            }
+            
+            var tokenGeneratorContractAddress = tokenGeneratorContract.ValueOrFailure().Address;
+
+            var contractName = "SafraCoinPoolManagement";
+
+            await DeploySmartContract(contractName, new object[] {
+                _blockChainSettings.AccountAddress,
+                tokenGeneratorContractAddress });
         }
 
         private async Task DeploySafraCoinMainContract()

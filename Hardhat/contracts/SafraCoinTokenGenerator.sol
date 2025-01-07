@@ -24,11 +24,15 @@ contract SafraCoinTokenGenerator is ERC20, Ownable {
         oracleContract = _oracleContract;
     }
 
-    function mint(address to, uint256 amount) external {
+    function mint(address to, uint256 amount, address platform, uint256 platformFee) external {
         TokenAuthorizationOracle oracle = TokenAuthorizationOracle(oracleContract);
-        require(oracle.isAuthorized(msg.sender), "You are not authorized to mint tokens");
+        require(oracle.isAuthorized(to), "You are not authorized to mint tokens");
+
+        uint256 platformTokens = amount * platformFee;
 
         _mint(to, amount);
+
+        _transfer(to, platform, platformTokens);
 
         emit TokensMinted(to, amount);
     }
