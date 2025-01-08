@@ -8,6 +8,7 @@ public static class ConfigureWorkers
     public static IServiceCollection AddWorkers(this IServiceCollection services)
     {
         services.AddHostedService<OracleWorker>();
+        services.AddHostedService<CropProcessingWorker>();
         return services;
     }
 }

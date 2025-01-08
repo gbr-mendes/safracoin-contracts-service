@@ -10,6 +10,7 @@ public static class ConfigureCoreServices
     {
         services.AddScoped<IImplantContractsService, ImplantContractsService>();
         services.AddScoped<IOracleService, OracleService>();
+        services.AddScoped<IRedisService, RedisService>();
         return services;
     }
 }

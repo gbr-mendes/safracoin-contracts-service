@@ -1,9 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
-using SafraCoinContractsService.Core.Interfaces.Repositories;
 using SafraCoinContractsService.Core.Interfaces.Services;
-using SafraCoinContractsService.Core.ValueObjects;
 
 namespace SafraCoinContractsService.Core.Workers;
 
@@ -23,12 +21,11 @@ public class OracleWorker : BackgroundService
         try
         {
             using var scope = _serviceScopeFactory.CreateScope();
-            var redisRepository = scope.ServiceProvider.GetRequiredService<IRedisRepository>();
             var oracleService = scope.ServiceProvider.GetRequiredService<IOracleService>();
+            var redisService = scope.ServiceProvider.GetRequiredService<IRedisService>();
 
             // TODO: Move to config file hardcoded properties
-            await CreateConsumerGroupIfNotExists(
-                redisRepository,
+            await redisService.CreateConsumerGroupIfNotExists(
                 "FarmerAccounts",
                 "FarmersConsumerGroup",
                 "1");
@@ -36,7 +33,7 @@ public class OracleWorker : BackgroundService
             _logger.LogInformation("[{workerName}] Starting jobs...", nameof(OracleWorker));
             while (!stoppingToken.IsCancellationRequested)
             {
-                await ProcessAccounts(redisRepository, oracleService);
+                await ProcessAccounts(redisService, oracleService);
             }
         }
         catch(Exception ex)
@@ -46,54 +43,16 @@ public class OracleWorker : BackgroundService
         }
     }
 
-    private async Task CreateConsumerGroupIfNotExists(
-        IRedisRepository redisRepository,
-        string streamKey,
-        string groupName,
-        string beginPosition)
+    private async Task ProcessAccounts(IRedisService redisService, IOracleService oracleService)
     {
-        var groupCreatedSuccessfully = await redisRepository.CreateGroupAsync(
-            streamKey,
-            groupName,
-            beginPosition);
-
-        var status = groupCreatedSuccessfully ? "Success" : "AlreadyExists";
-
-        _logger.LogInformation("[{workerName}] Consumer group {groupName} created: Status: {status}",
-            nameof(OracleWorker),
-            groupName,
-            status
-        );
-    }
-
-    private static async Task<IEnumerable<AccountVO>> ReadFarmerAccountsFromRedisStream(IRedisRepository redisRepository)
-    {
-        var count = 1;
-        var farmerAccounts = await redisRepository.ReadEntriesFromStreamAsync(
+        var farmerAccounts = await redisService.ReadEntriesFromRedisStream(
             "FarmerAccounts",
             "FarmersConsumerGroup",
             "SafraCoinContractsService",
             ">",
-            count,
-            (buffer, redisEntryId) => {
-                var farmer = FarmerAccount.Parser.ParseFrom(buffer);
-                var accountVO = new AccountVO
-                {
-                    RedisEntryId = redisEntryId,
-                    Address = farmer.Address,
-                    Email = farmer.Email
-                };
-
-                return accountVO;
-            }
+            1,
+            FarmerAccount.Parser.ParseFrom
         );
-
-        return farmerAccounts;
-    }
-
-    private async Task ProcessAccounts(IRedisRepository redisRepository, IOracleService oracleService)
-    {
-        var farmerAccounts = await ReadFarmerAccountsFromRedisStream(redisRepository);
 
         if (!farmerAccounts.Any())
         {
@@ -102,14 +61,15 @@ public class OracleWorker : BackgroundService
             return;
         }
 
-        foreach (var account in farmerAccounts)
+        foreach (var entry in farmerAccounts)
         {
+            var account = entry.Value;
             _logger.LogInformation("[{workerName}] Processing account {account}", nameof(OracleWorker), account.Address);
             await oracleService.SetAuthorization(account.Address);
-            await redisRepository.AckEntryStreamGroupAsync(
+            await redisService.AckEntryStreamGroupAsync(
                 "FarmerAccounts",
                 "FarmersConsumerGroup",
-                account.RedisEntryId
+                entry.Key
             );
         }
         await Task.Delay(1000);
